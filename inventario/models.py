@@ -20,20 +20,6 @@ class Movimiento(models.Model):
     cantidad = models.IntegerField()
     fecha = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(User, on_delete=models.PROTECT)
-    def save(self, *args, **kwargs):
-        if self.tipo == 'SALIDA' and self.producto.cantidad < self.cantidad:
-            raise ValidationError(f"🚫 Stock insuficiente. Solo quedan {self.producto.cantidad} unidades.")
-
-        # Modificar el stock del producto según el tipo de movimiento
-        if self.tipo == 'ENTRADA':
-            self.producto.cantidad += self.cantidad
-        elif self.tipo == 'SALIDA':
-            self.producto.cantidad -= self.cantidad
-        
-        self.producto.save()
-
-        # 4. Guardar efectivamente el movimiento en la base de datos
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.tipo} - {self.producto.nombre} ({self.cantidad})"
