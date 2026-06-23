@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Gestión de Stock</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center" style="height: 100vh;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+                <div class="card p-4 shadow-sm">
+                    <h3 class="text-center mb-4">Iniciar Sesión</h3>
+                    
+                    {% if messages %}
+                        <div class="mb-3">
+                            {% for message in messages %}
+                                <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm" role="alert" style="font-size: 0.9rem;">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form action="{% url 'login' %}" method="POST">
+                        {% csrf_token %} 
+                        <div class="mb-3">
+                            <label class="form-label">Usuario (Active Directory)</label>
+                            <input type="text" name="username" class="form-control" required placeholder="Ej: admin, operador, consulta">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" name="password" class="form-control" required placeholder="Password123">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Ingresar al Sistema</button>
+                    </form>
+                    
+                    <!--<div class="text-muted text-center mt-3" style="font-size: 0.8rem;">
+                        * Sistema protegido: Restricción horaria activa (08:00 a 18:00 hs)
+                    </div>-->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
