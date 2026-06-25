@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Django - Panel Profesional</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            padding-bottom: 50px;
+        }
+        .header-box {
+            background-color: #0f172a; /* Azul noche corporativo */
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .table th {
+            background-color: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        
+        <div class="header-box d-flex justify-content-between align-items-center mb-4">
+            <h3 class="m-0 fw-bold">📦 Gestión de Stock</h3>
+            <div class="align-middle">
+                <span class="me-2">Usuario: <strong>{{ user.username }}</strong></span>
+                <span class="badge bg-primary text-uppercase px-2 py-1.5 me-3" style="font-size: 0.75rem;">{{ rol }}</span>
+                <a href="{% url 'logout' %}" class="btn btn-danger btn-sm">Salir</a>
+            </div>
+        </div>
+
+        {% if rol == 'Admin' or rol == 'Consulta' %}
+        <div class="card p-3 mb-4 bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold m-0 text-secondary">Reportes del Sistema</h5>
+                    <p class="text-muted small m-0">Descarga el estado actual de los activos en formato compatible con Excel.</p>
+                </div>
+                <a href="{% url 'exportar_csv' %}" class="btn btn-success">📊 Exportar Stock a CSV</a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show shadow-sm border-0" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <h4 class="fw-bold mb-3 text-dark">Inventario Actual</h4>
+        <div class="table-container mb-4">
+            <table class="table table-striped table-hover align-middle m-0">
+                <thead>
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Producto</th>
+                        <th class="p-3">Stock</th>
+                        <th class="p-3">Precio</th>
+                        {% if rol == 'Admin' %}
+                        <th class="p-3 text-center">Acciones</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="p-3 fw-bold text-muted">#{{ p.id }}</td>
+                        <td class="p-3 fw-bold">{{ p.nombre }}</td>
+                        <td class="p-3">
+                            <span class="badge {% if p.cantidad == 0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill px-3 py-2">
+                                {{ p.cantidad }} u.
+                            </span>
+                        </td>
+                        <td class="p-3 fw-semibold text-secondary">${{ p.precio }}</td>
+                        {% if rol == 'Admin' %}
+                        <td class="p-3 text-center">
+                            <a href="{% url 'eliminar_producto' p.id %}" 
+                               class="btn btn-outline-danger btn-sm"
+                               onclick="return confirm('¿Seguro que querés eliminar el producto {{ p.nombre }}?');">
+                                🗑️ Eliminar
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if rol == 'Admin' %}5{% else %}4{% endif %}" class="text-center text-muted py-4">
+                            No hay productos cargados en el sistema.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="row mt-4">
+            
+            {% if rol == 'Admin' %}
+            <div class="col-md-6 mb-4">
+                <div class="card p-4 bg-white">
+                    <h5 class="fw-bold text-success mb-3">🆕 Registrar Nuevo Producto</h5>
+                    <form action="{% url 'crear_producto' %}" method="POST">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del Producto</label>
+                            <input type="text" name="nombre" class="form-control" required placeholder="Nombre producto">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Precio ($)</label>
+                                <input type="number" step="0.01" name="precio" class="form-control" required placeholder="0.00" min="0">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Stock Inicial</label>
+                                <input type="number" name="cantidad_inicial" class="form-control" value="0" required min="0">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Dar de Alta Producto</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if rol == 'Admin' or rol == 'Operador' %}
+            <div class="col-md-{% if rol == 'Admin' %}6{% else %}12{% endif %} mb-4">
+                <div class="card p-4 bg-white">
+                    <h5 class="fw-bold text-primary mb-3">🔄 Registrar Movimiento de Stock</h5>
+                    <form action="{% url 'registrar_movimiento' %}" method="POST">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">ID del Producto (Existente)</label>
+                            <input type="number" name="producto_id" class="form-control" required placeholder="Ej: 1, 2, 3...">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tipo de Operación</label>
+                                <select name="tipo" class="form-select">
+                                    <option value="ENTRADA">Entrada (+ Ingreso)</option>
+                                    <option value="SALIDA">Salida (- Egreso)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cantidad</label>
+                                <input type="number" name="cantidad" class="form-control" required min="1">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Guardar Movimiento</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
