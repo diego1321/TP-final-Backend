@@ -42,11 +42,39 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 
 ## Modelo de datos
 
+### Producto
 
+| Campo | Tipo de dato | Descripción |
+|-------|--------------|-------------|
+| id | AutoField | Identificador único del producto (generado automáticamente por Django). |
+| nombre | CharField (max_length=100) | Nombre del producto. |
+| cantidad | IntegerField | Cantidad disponible en stock. |
+| precio | DecimalField (max_digits=10, decimal_places=2) | Precio unitario del producto. |
+
+### Movimiento
+
+| Campo | Tipo de dato | Descripción |
+|-------|--------------|-------------|
+| id | AutoField | Identificador único del movimiento (generado automáticamente por Django). |
+| producto | ForeignKey → Producto | Producto asociado al movimiento. |
+| tipo | CharField | Tipo de movimiento: **ENTRADA** o **SALIDA**. |
+| cantidad | IntegerField | Cantidad de unidades ingresadas o retiradas. |
+| fecha | DateTimeField | Fecha y hora del movimiento (generada automáticamente). |
+| usuario | ForeignKey → User | Usuario que registró el movimiento. |
 
 ## Endpoints
 
-
+| Método | Endpoint | Vista | Descripción |
+|--------|----------|-------|-------------|
+| GET | `/admin/` | Django Admin | Panel de administración de Django. |
+| GET | `/` | `dashboard_view` | Muestra el dashboard con el listado de productos. |
+| GET / POST | `/login/` | `login_view` | Inicio de sesión de usuarios. |
+| GET | `/logout/` | `logout_view` | Cierra la sesión del usuario. |
+| POST | `/movimiento/` | `registrar_movimiento` | Registra una entrada o salida de stock. |
+| GET | `/exportar/` | `exportar_csv` | Exporta el inventario en formato CSV. |
+| POST | `/crear-producto/` | `crear_producto` | Alta de un nuevo producto. |
+| POST | `/eliminar-producto/<int:producto_id>/` | `eliminar_producto` | Elimina un producto por ID. |
+| GET / POST | `/editar-producto/<int:producto_id>/` | `editar_producto` | Edita la información de un producto existente. |
 
 ## Documentación
 
@@ -54,7 +82,7 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 
 ## Notas
 
-- El sistema cuenta con usuarios creados en la base de datos para facilitar la prueba. Para proceder desde cero se debe crear un superusuario:
+1.  El sistema cuenta con una base de datos (db.sqlite3) que contiene usuarios de cada rol y productos cargados para poder facilitar el testeo. Para proceder desde cero se debe crear un superusuario:
  ```
  python manage.py createsuperuser
  ```
@@ -62,5 +90,6 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
  ```
  http://127.0.0.1:8000/admin/
  ```
- se puede proceder a crear usuarios y añadirlos al grupo de su rol correspondiente.
+se crean los usuarios y se añaden al grupo de su rol correspondiente. Con eso ya se puede logear y utilizar la aplicación.
+
 
