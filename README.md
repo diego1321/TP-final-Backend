@@ -75,6 +75,7 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 | POST | `/crear-producto/` | `crear_producto` | Alta de un nuevo producto. |
 | POST | `/eliminar-producto/<int:producto_id>/` | `eliminar_producto` | Elimina un producto por ID. |
 | GET / POST | `/editar-producto/<int:producto_id>/` | `editar_producto` | Edita la información de un producto existente. |
+| GET | `/exportar-movimientos/` | `exportar_csv_movimientos` | Exporta el historial de movimientos del inventario en formato CSV para su descarga. |
 
 ## Documentación
 
