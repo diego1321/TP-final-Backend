@@ -28,5 +28,6 @@ urlpatterns = [
     path('crear-producto/', views.crear_producto, name='crear_producto'),
     path('eliminar-producto/<int:producto_id>/', views.eliminar_producto, name='eliminar_producto'),
     path('editar-producto/<int:producto_id>/', views.editar_producto, name='editar_producto'),
+    path('exportar-movimientos/', views.exportar_csv_movimientos, name='exportar_csv_movimientos'),
 
 ]

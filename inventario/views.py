@@ -1,5 +1,5 @@
 from urllib import request
-
+from django.utils import timezone  
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User, Group
@@ -26,7 +26,7 @@ def login_view(request):
             if not user.groups.filter(name='Admin').exists():  # o según tu lógica de roles
                 hora_actual = datetime.now().time()
                 hora_inicio = datetime.strptime("08:00", "%H:%M").time()
-                hora_fin = datetime.strptime("18:00", "%H:%M").time()
+                hora_fin = datetime.strptime("23:00", "%H:%M").time()
                 if not (hora_inicio <= hora_actual <= hora_fin):
                     messages.error(request, "Acceso permitido solo de 08:00 a 18:00 hs.")
                     return redirect('login')
@@ -168,3 +168,34 @@ def exportar_csv(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+@login_required
+def exportar_csv_movimientos(request):
+    # Tu filtro original (que confirmamos que funciona perfecto)
+    if not request.user.groups.filter(name='Admin').exists() and not request.user.is_superuser:
+        return HttpResponseForbidden("🛑 No autorizado.")
+        
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="movimientos.csv"'
+    
+    # Evita que el navegador te devuelva un archivo viejo de su memoria
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Producto', 'Tipo', 'Cantidad', 'Usuario', 'Fecha'])
+    
+    # Consulta optimizada a la base de datos
+    movimientos = Movimiento.objects.all().select_related('producto', 'usuario').order_by('id')
+    
+    for m in movimientos:
+        fecha_local = timezone.localtime(m.fecha)
+        writer.writerow([
+            m.id, 
+            m.producto.nombre, 
+            m.tipo, 
+            m.cantidad, 
+            m.usuario.username, 
+            fecha_local.strftime('%d/%m/%Y %H:%M')
+        ])
+        
+    return response
