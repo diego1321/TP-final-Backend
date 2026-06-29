@@ -42,6 +42,14 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 
 ## Modelo de datos
 
+### Categoria
+
+| Campo | Tipo de dato  | Descripción |
+| ------------ | ------------ | ------------ |
+|id  | AutoField | Identificador único de la categoria (generado automáticamente por Django).
+|  nombre | CharField(max_length=100)  | Nombre de la categoria.  |
+| descripcion  | TextField  | Descripción de la categoria |
+
 ### Producto
 
 | Campo | Tipo de dato | Descripción |
@@ -61,6 +69,48 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 | cantidad | IntegerField | Cantidad de unidades ingresadas o retiradas. |
 | fecha | DateTimeField | Fecha y hora del movimiento (generada automáticamente). |
 | usuario | ForeignKey → User | Usuario que registró el movimiento. |
+| compra | ForeignKey → Compra | Identificación de la compra. |
+| venta | ForeignKey → Venta | Identificación de la venta. |
+
+### Proveedor
+
+| Campo  | Tipo de dato  | Descripción  |
+| ------------ | ------------ | ------------ |
+|id  | AutoField | Identificador único del proveedor (generado automáticamente por Django).
+| nombre  | CharField(max_length=100)  | Nombre del proveedor.  |
+|  cuit | CharField(max_length=20)  | Cuit del proveedor.  |
+|  telefono | CharField(max_length=50)  | Telefono del proveedor.  |
+|  email | EmailField  | Correo electronico del proveedor.  |
+
+### Cliente
+
+| Campo  | Tipo de dato  | Descripción  |
+| ------------ | ------------ | ------------ |
+| id | AutoField | Identificador único del cliente (generado automáticamente por Django).
+| nombre  | CharField(max_length=100)  | Nombre del cliente.  |
+|  dni_cuit | CharField(max_length=20)  | Dni o cuit del cliente.  |
+|  email | EmailField  | Correo electronico del cliente.  |
+
+### Compra
+
+| Campo  | Tipo de dato  | Descripción  |
+| ------------ | ------------ | ------------ |
+| id | AutoField | Identificador único de la compra (generado automáticamente por Django).
+| proveedor  | ForeignKey → Proveedor  | Nombre del proveedor a quien se le adquieren los productos.  |
+|  fecha | DateTimeField  | Fecha en la que se realiza la compra.  |
+|  total | DecimalField(max_digits=12, decimal_places=2  | Monto total de la compra.  |
+|  usuario | ForeignKey → User  | Usuario (admin u operario) que registra la compra en el sistema.  |
+
+### Venta
+
+| Campo  | Tipo de dato  | Descripción  |
+| ------------ | ------------ | ------------ |
+| id | AutoField | Identificador único de la compra (generado automáticamente por Django).
+| cliente  | ForeignKey → Cliente  | Nombre del cliente que adquiere los productos.  |
+|  fecha | DateTimeField  | Fecha en la que se realiza la venta.  |
+|  total | DecimalField(max_digits=12, decimal_places=2  | Monto total de la venta.  |
+|  usuario | ForeignKey → User  | Usuario (admin u operario) que registra la venta en el sistema.  |
+
 
 ## Endpoints
 
