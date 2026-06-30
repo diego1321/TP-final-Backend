@@ -111,6 +111,25 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 |  total | DecimalField(max_digits=12, decimal_places=2  | Monto total de la venta.  |
 |  usuario | ForeignKey → User  | Usuario (admin u operario) que registra la venta en el sistema.  |
 
+### DetalleCompra
+
+| Campo | Tipo | Descripción |
+|--------|------|-------------|
+| compra | ForeignKey → Compra | Compra a la que pertenece el detalle. |
+| producto | ForeignKey → Producto | Producto adquirido. |
+| cantidad | PositiveIntegerField | Cantidad comprada del producto. |
+| precio_unitario | DecimalField | Precio unitario del producto al momento de la compra. |
+
+### DetalleVenta
+
+| Campo | Tipo | Descripción |
+|--------|------|-------------|
+| venta | ForeignKey → Venta | Venta a la que pertenece el detalle. |
+| producto | ForeignKey → Producto | Producto vendido. |
+| cantidad | PositiveIntegerField | Cantidad vendida del producto. |
+| precio_unitario | DecimalField | Precio unitario del producto al momento de la venta. |
+
+
 
 ## Endpoints
 
