@@ -1,12 +1,15 @@
+from decimal import Decimal
+
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from .models import Producto, Movimiento, Compra, Venta, Proveedor, Cliente
-from .forms import ProductoForm
+from .forms import ClienteForm, ProductoForm, ProveedorForm
 from .services import InventarioService
+from django.views.generic import DetailView
 
 # 1. ESTO DEBE IR PRIMERO SIEMPRE (Para que las vistas de abajo lo puedan usar)
 class AdminOrOperadorMixin(UserPassesTestMixin):
@@ -24,7 +27,7 @@ class DashboardView(LoginRequiredMixin, ListView):
     context_object_name = 'productos'
 
     def get_queryset(self):
-        return InventarioService.obtener_todos_los_productos()
+        return Producto.objects.filter(activo=True).order_by('nombre')
 
     def get_context_data(self, **kwargs): #  Correcto
         context = super().get_context_data(**kwargs)
@@ -36,7 +39,28 @@ class DashboardView(LoginRequiredMixin, ListView):
             
         context['movimientos'] = InventarioService.obtener_historial_movimientos()
         context['form'] = ProductoForm()
+        context['form_cliente'] = ClienteForm()
+        context['form_proveedor'] = ProveedorForm()
         return context
+class CrearProveedorView(LoginRequiredMixin, AdminOrOperadorMixin, CreateView):
+    model = Proveedor
+    form_class = ProveedorForm
+    template_name = 'form_contacto.html' # Puedes usar un template genérico
+    success_url = reverse_lazy('dashboard')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Proveedor registrado con éxito.")
+        return super().form_valid(form)
+
+class CrearClienteView(LoginRequiredMixin, AdminOrOperadorMixin, CreateView):
+    model = Cliente
+    form_class = ClienteForm
+    template_name = 'form_contacto.html'
+    success_url = reverse_lazy('dashboard')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Cliente registrado con éxito.")
+        return super().form_valid(form)
 
 class CrearProductoView(LoginRequiredMixin, AdminOrOperadorMixin, CreateView):
     """Alta de nuevos productos en el catálogo."""
@@ -78,33 +102,31 @@ class EditarProductoView(LoginRequiredMixin, AdminOrOperadorMixin, UpdateView):
     success_url = reverse_lazy('dashboard')
 
     def form_valid(self, form):
+        # NOTA: Aquí, si quieres usar tu servicio en lugar del .save() automático, 
+        # deberías implementar la lógica que charlamos antes. 
+        # Por ahora, esto cumple con tu código actual.
         messages.success(self.request, "Producto modificado con éxito.")
         return super().form_valid(form)
 
-    def get_context_data(**kwargs):
+    def get_context_data(self, **kwargs):
+        # Y aquí llamamos a super() con self
         context = super().get_context_data(**kwargs)
+        
         if self.request.user.is_superuser:
             context['rol'] = 'Admin'
         else:
             grupo = self.request.user.groups.first()
             context['rol'] = grupo.name if grupo else 'Consulta'
+            
         return context
 
-class EliminarProductoView(LoginRequiredMixin, AdminOrOperadorMixin, DeleteView):
-    model = Producto
-    template_name = 'dashboard.html'
-    success_url = reverse_lazy('dashboard')
-    pk_url_kwarg = 'producto_id'
-
-    def get(self, request, *args, **kwargs):
-        return self.delete(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        success_url = self.get_success_url()
-        self.object.delete()
-        messages.success(request, "Producto eliminado correctamente.")
-        return redirect(success_url)
+class EliminarProductoView(LoginRequiredMixin, AdminOrOperadorMixin, View):
+    def post(self, request, producto_id):
+        producto = get_object_or_404(Producto, id=producto_id)
+        producto.activo = False
+        producto.save()
+        messages.success(request, f"Producto {producto.nombre} desactivado correctamente.")
+        return redirect('dashboard')
 
 class RegistrarMovimientoView(LoginRequiredMixin, AdminOrOperadorMixin, View):
     def post(self, request):
@@ -130,80 +152,147 @@ class ExportarMovimientosCSVView(LoginRequiredMixin, View):
             messages.error(request, "No tiene permisos.")
             return redirect('dashboard')
         return InventarioService.generar_csv_movimientos()
+class VentaDetalleView(LoginRequiredMixin, AdminOrOperadorMixin, DetailView):
+    model = Venta
+    template_name = 'detalle_venta.html'
+    context_object_name = 'venta'
+    pk_url_kwarg = 'venta_id'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['items'] = self.object.detalles.all()
+        return context
+
+class CompraDetalleView(LoginRequiredMixin, AdminOrOperadorMixin, DetailView):
+    model = Compra
+    template_name = 'detalle_compra.html'
+    context_object_name = 'compra'
+    pk_url_kwarg = 'compra_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['items'] = self.object.detalles.all()
+        return context
 # --- VISTAS PARA LA SIMULACIÓN DE OPERACIONES (CORREGIDAS SIN INDEX OUT OF RANGE) ---
 
 class SimularCompraView(LoginRequiredMixin, AdminOrOperadorMixin, View):
     """Permite seleccionar múltiples productos para simular un ingreso."""
     def get(self, request):
-        productos = Producto.objects.all().order_by('nombre')
-        return render(request, 'simular_compra.html', {'productos': productos})
+        productos = Producto.objects.filter(activo=True).order_by('nombre')
+        proveedores = Proveedor.objects.all()
+        return render(request, 'simular_compra.html', {'productos': productos, 'proveedores': proveedores})
 
     def post(self, request):
-        productos_ids = request.POST.getlist('productos[]')
-        
-        if not productos_ids:
-            messages.error(request, "Debe seleccionar al menos un producto.")
-            return redirect('simular_compra')
-
-        try:
-            proveedor_defecto = Proveedor.objects.first()
-            if not proveedor_defecto:
-                proveedor_defecto = Proveedor.objects.create(nombre="Proveedor Sistema")
-
-            compra = Compra.objects.create(usuario=request.user, proveedor=proveedor_defecto)
-            resumen = []
+            productos_ids = request.POST.getlist('productos[]')
+            proveedor_id = request.POST.get('proveedor_id')
             
-            for p_id in productos_ids:
-                # Obtenemos la cantidad específica de este ID de producto
-                cant = request.POST.get(f'cantidad_{p_id}')
-                cantidad = int(cant) if cant else 0
+            if not productos_ids:
+                messages.error(request, "Debe seleccionar al menos un producto.")
+                return redirect('simular_compra')
+            if not proveedor_id: 
+                messages.error(request, "Debe seleccionar un proveedor.")
+                return redirect('simular_compra')
+            try:
+                items = []
+                for p_id in productos_ids:
+                    cant = request.POST.get(f'cantidad_{p_id}')
+                    cantidad = int(cant) if cant else 0
+                    costo_input = request.POST.get(f'costo_{p_id}')
+                    precio_costo = Decimal(request.POST.get(f'costo_{p_id}', '0'))
+                    
+                    if cantidad > 0:
+                        items.append({
+                            'id': p_id, 
+                            'cant': cantidad, 
+                            'precio': precio_costo
+                        })
+
+                if not items:
+                    messages.error(request, "Debe ingresar cantidades válidas.")
+                    return redirect('simular_compra')
+                compra = InventarioService.crear_compra(proveedor_id, request.user, items)
                 
-                if cantidad > 0:
-                    mov = InventarioService.registrar_movimiento_stock(
-                        producto_id=p_id, tipo='ENTRADA', cantidad=cantidad, usuario=request.user, compra_id=compra.id
-                    )
-                    resumen.append({'producto': mov.producto.nombre, 'cantidad': cantidad, 'precio': mov.producto.precio})
-            
-            return render(request, 'resumen_operacion.html', {'tipo': 'Compra', 'items': resumen, 'doc_id': compra.id})
-        except Exception as e:
-            messages.error(request, f"Error en la simulación: {str(e)}")
-            return redirect('dashboard')
+                resumen = [{'producto': item.producto.nombre, 'cantidad': item.cantidad, 'precio': item.precio_unitario} 
+                        for item in compra.detalles.all()]
+                
+                return render(request, 'resumen_operacion.html', {'tipo': 'Compra', 'items': resumen, 'doc_id': compra.id})
+                
+            except Exception as e:
+                messages.error(request, f"Error en la simulación: {str(e)}")
+                return redirect('dashboard')
 
 
 class SimularVentaView(LoginRequiredMixin, AdminOrOperadorMixin, View):
     """Permite seleccionar múltiples productos para simular un egreso con validación de stock."""
     def get(self, request):
-        productos = Producto.objects.all().order_by('nombre')
-        return render(request, 'simular_venta.html', {'productos': productos})
+        productos = Producto.objects.filter(activo=True).order_by('nombre')
+        clientes = Cliente.objects.all()
+        return render(request, 'simular_venta.html', {'productos': productos, 'clientes': clientes})
 
     def post(self, request):
-        productos_ids = request.POST.getlist('productos[]')
+            productos_ids = request.POST.getlist('productos[]')
+            cliente_id = request.POST.get('cliente_id')
+            if not productos_ids:
+                messages.error(request, "Debe seleccionar al menos un producto.")
+                return redirect('simular_venta')
 
-        if not productos_ids:
-            messages.error(request, "Debe seleccionar al menos un producto.")
-            return redirect('simular_venta')
+            try:
+                c_id = int(cliente_id) if cliente_id else None
 
-        try:
-            cliente_defecto = Cliente.objects.first()
-            if not cliente_defecto:
-                cliente_defecto = Cliente.objects.create(nombre="Consumidor Final")
+                # 2. Preparamos la lista de items
+                items = []
+                for p_id in productos_ids:
+                    cant = request.POST.get(f'cantidad_{p_id}')
+                    cantidad = int(cant) if cant else 0
+                    
+                    if cantidad > 0:
+                        items.append({
+                            'id': p_id, 
+                            'cant': cantidad
+                        })
 
-            venta = Venta.objects.create(usuario=request.user, cliente=cliente_defecto)
-            resumen = []
-            
-            for p_id in productos_ids:
-                # Obtenemos la cantidad específica de este ID de producto
-                cant = request.POST.get(f'cantidad_{p_id}')
-                cantidad = int(cant) if cant else 0
+                if not items:
+                    messages.error(request, "Debe ingresar cantidades válidas.")
+                    return redirect('simular_venta')
+
+                # 3. Llamamos al nuevo servicio (asumiendo que creaste crear_venta en services.py)
+                venta = InventarioService.crear_venta(c_id, request.user, items)              
+                # 4. Resumen para la vista
+                resumen = [{'producto': item.producto.nombre, 'cantidad': item.cantidad, 'precio': item.precio_unitario} 
+                    for item in venta.detalles.all()]
                 
-                if cantidad > 0:
-                    mov = InventarioService.registrar_movimiento_stock(
-                        producto_id=p_id, tipo='SALIDA', cantidad=cantidad, usuario=request.user, venta_id=venta.id
-                    )
-                    resumen.append({'producto': mov.producto.nombre, 'cantidad': cantidad, 'precio': mov.producto.precio})
-            
-            return render(request, 'resumen_operacion.html', {'tipo': 'Venta', 'items': resumen, 'doc_id': venta.id})
-        except Exception as e:
-            messages.error(request, f"Error: {str(e)}")
-            return redirect('simular_venta')
+                return render(request, 'resumen_operacion.html', {'tipo': 'Venta', 'items': resumen, 'doc_id': venta.id})
+                
+            except Exception as e:
+                messages.error(request, f"Error en la simulación: {str(e)}")
+                return redirect('dashboard')
+
+class HistoricoVentasView(LoginRequiredMixin, AdminOrOperadorMixin, ListView):
+    model = Venta
+    template_name = 'historico_ventas.html'
+    context_object_name = 'ventas'
+
+    def get_queryset(self):
+        return InventarioService.obtener_historial_ventas()
+    
+class HistoricoComprasView(LoginRequiredMixin, AdminOrOperadorMixin, ListView):
+    model = Compra
+    template_name = 'historico_compras.html'
+    context_object_name = 'compras'
+
+    def get_queryset(self):
+        return InventarioService.obtener_historial_compras()
+
+class ExportarTicketPDFView(LoginRequiredMixin, View):
+    def get(self, request, tipo, id):
+        pdf = InventarioService.generar_pdf_ticket(tipo, id)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="ticket_{tipo}_{id}.pdf"'
+        return response
+class ProductosMasVendidosView(LoginRequiredMixin, AdminOrOperadorMixin, ListView):
+    model = Producto
+    template_name = 'productos_mas_vendidos.html'
+    context_object_name = 'productos_top'
+
+    def get_queryset(self):
+        return InventarioService.obtener_productos_mas_vendidos(limite=10)

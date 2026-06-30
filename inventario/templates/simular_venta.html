@@ -23,9 +23,18 @@
                 <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al Panel</a>
             </div>
             <p class="text-muted">Selecciona los productos y las cantidades correspondientes para el egreso.</p>
-            
             <form method="POST" id="venta-form">
                 {% csrf_token %}
+                <div class="mb-4">
+                    <label class="fw-bold text-dark">Seleccionar Cliente:</label>
+                    <select name="cliente_id" class="form-select border-2">
+                        <option value="">Consumidor Final</option>
+                        {% for cli in clientes %}
+                            <option value="{{ cli.id }}">{{ cli.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Si no selecciona un cliente, se registrará como Consumidor Final.</div>
+                </div>
                 <div class="table-responsive mb-4" style="max-height: 400px; overflow-y: auto;">
                     <table class="table align-middle">
                         <thead class="table-light sticky-top">

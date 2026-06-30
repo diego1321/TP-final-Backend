@@ -5,6 +5,7 @@
     <title>Stock Django - Panel Profesional</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -61,25 +62,51 @@
         </div>
 
         {% if rol == 'Admin' or rol == 'Consulta' or rol == 'Operador' %}
+            <div class="card p-3 mb-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold m-0 text-secondary">Panel de Operaciones</h5>
+                        <p class="text-muted small m-0">Gestiona inventario, reportes y transacciones comerciales.</p>
+                    </div>
+                    
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="/exportar/productos/" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-file-csv me-1"></i> Stock
+                        </a>
+                        <a href="/exportar/movimientos/" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-history me-1"></i> Movimientos
+                        </a>
+                        <a href="{% url 'productos_top' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-trophy me-1"></i> Top Ventas
+                        </a>
+                        
+                        {% if rol == 'Admin' or rol == 'Operador' %}
+                            <div class="vr mx-1"></div> <a href="/simular/compra/" class="btn btn-warning btn-sm text-dark fw-bold">
+                                <i class="fas fa-shopping-cart me-1"></i> Nueva Compra
+                            </a>
+                            <a href="/simular/venta/" class="btn btn-danger btn-sm text-white fw-bold">
+                                <i class="fas fa-cash-register me-1"></i> Nueva Venta
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         <div class="card p-3 mb-4 bg-white">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h5 class="fw-bold m-0 text-secondary">Panel de Operaciones</h5>
-                    <p class="text-muted small m-0">Descarga estados de inventario o simula transacciones comerciales masivas.</p>
+                    <h5 class="fw-bold m-0 text-secondary">Gestión de Contactos</h5>
+                    <p class="text-muted small m-0">Agrega clientes o proveedores para tus operaciones.</p>
                 </div>
                 <div class="d-flex gap-2">
-                    {% if rol == 'Admin' or rol == 'Consulta' %}
-                    <a href="{% url 'exportar_csv' %}" class="btn btn-success">📊 Exportar Stock</a>
-                    {% endif %}
-                    {% if rol == 'Admin' %}
-                    <a href="{% url 'exportar_csv_movimientos' %}" class="btn btn-info text-white">📊 Exportar Movimientos</a>
-                    {% endif %}
-                    {% if rol == 'Admin' or rol == 'Operador' %}
-                    <a href="{% url 'simular_compra' %}" class="btn btn-warning text-dark fw-semibold">🛒 Realizar Compra</a>
-                    <a href="{% url 'simular_venta' %}" class="btn btn-danger fw-semibold">💰 Realizar Venta</a>
-                    {% endif %}
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCliente">
+                        <i class="fas fa-plus me-2"></i> Nuevo Cliente
+                    </button>
+
+                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalProveedor">
+                        <i class="fas fa-plus me-2"></i> Nuevo Proveedor
+                    </button>
                 </div>
-            </div>
+            </div>  
         </div>
         {% endif %}
 
@@ -124,16 +151,20 @@
                         </td>
                         <td class="p-3 fw-semibold text-secondary">${{ p.precio }}</td>
                         {% if rol == 'Admin' %}
-                        <td class="p-3 text-center">
-                            <a href="{% url 'editar_producto' p.id %}" class="btn btn-outline-primary btn-sm me-1">
-                                ✏️ Editar
-                            </a>
-                            <a href="{% url 'eliminar_producto' p.id %}" 
-                               class="btn btn-outline-danger btn-sm"
-                               onclick="return confirm('¿Seguro que querés eliminar el producto {{ p.nombre }}?');">
-                                🗑️ Eliminar
-                            </a>
-                        </td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'editar_producto' p.id %}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    
+                                    <form method="POST" action="{% url 'eliminar_producto' p.id %}" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         {% endif %}
                     </tr>
                     {% empty %}
@@ -224,8 +255,74 @@
             {% endif %}
 
         </div>
+        {% if rol == 'Admin' or rol == 'Operador' %}
+        <div class="row mt-4 mb-5 justify-content-center">
+            <div class="col-md-8">
+                <div class="card p-4 bg-white border-0 shadow-sm text-center">
+                    <h5 class="fw-bold text-dark mb-3">Registros de Compra/Venta</h5>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'historico_ventas' %}" class="btn btn-success fw-semibold px-4 py-2">
+                            Historial de Ventas
+                        </a>
+                        <a href="{% url 'historico_compras' %}" class="btn btn-primary fw-semibold px-4 py-2">
+                            Historial de Compras
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{% url 'crear_cliente' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">
+                            <i class="fas fa-user-plus text-primary me-2"></i> Nuevo Cliente
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ form_cliente.as_p }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Cliente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{% url 'crear_proveedor' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">
+                            <i class="fas fa-truck-loading text-success me-2"></i> Nuevo Proveedor
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ form_proveedor.as_p }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Guardar Proveedor
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </html>

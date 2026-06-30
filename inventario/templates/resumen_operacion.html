@@ -45,6 +45,12 @@
                     <span>Total General:</span>
                     <span id="total-final-display">$0.00</span>
                 </div>
+                
+                <div class="d-grid gap-2 mt-4">
+                    <a href="{% url 'generar_pdf' tipo|lower doc_id %}" class="btn btn-success py-2 fw-semibold">
+                        📥 Descargar Comprobante PDF
+                    </a>
+                </div>
             </div>
 
             <a href="{% url 'dashboard' %}" class="btn btn-primary w-100 py-2 fw-medium">Volver al Dashboard</a>
