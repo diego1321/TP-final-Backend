@@ -1,201 +1,209 @@
-from urllib import request
-from django.utils import timezone  
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout, authenticate
-from django.contrib.auth.models import User, Group
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.shortcuts import redirect, render, get_object_or_404
+from django.urls import reverse_lazy
 from django.contrib import messages
-from django.http import HttpResponseForbidden
-from django.contrib.auth.decorators import login_required
-from .models import Producto, Movimiento
-from datetime import datetime
-import csv
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.http import HttpResponseRedirect
+from .models import Producto, Movimiento, Compra, Venta, Proveedor, Cliente
 from .forms import ProductoForm
+from .services import InventarioService
 
-def login_view(request):
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '')
+# 1. ESTO DEBE IR PRIMERO SIEMPRE (Para que las vistas de abajo lo puedan usar)
+class AdminOrOperadorMixin(UserPassesTestMixin):
+    """Controla que el usuario tenga permisos de escritura (Admin u Operador)."""
+    def test_func(self):
+        user = self.request.user
+        return user.is_superuser or user.groups.filter(name__in=['Admin', 'Operador']).exists()
 
-        user = authenticate(request, username=username, password=password)
 
-        if user is not None:
-            # Credenciales válidas, ahora podemos aplicar reglas de negocio adicionales
-            # Ejemplo: restricción horaria (solo para no administradores)
-            if not user.groups.filter(name='Admin').exists():  # o según tu lógica de roles
-                hora_actual = datetime.now().time()
-                hora_inicio = datetime.strptime("08:00", "%H:%M").time()
-                hora_fin = datetime.strptime("23:00", "%H:%M").time()
-                if not (hora_inicio <= hora_actual <= hora_fin):
-                    messages.error(request, "Acceso permitido solo de 08:00 a 18:00 hs.")
-                    return redirect('login')
+# 2. VISTAS DEL DASHBOARD Y CATÁLOGO
+class DashboardView(LoginRequiredMixin, ListView):
+    """Vista principal del panel de control."""
+    model = Producto
+    template_name = 'dashboard.html'
+    context_object_name = 'productos'
 
-            # Si pasa todas las reglas, inicia sesión
-            login(request, user)
-            messages.success(request, f"Bienvenido, {user.username}.")
-            return redirect('dashboard')
+    def get_queryset(self):
+        return InventarioService.obtener_todos_los_productos()
+
+    def get_context_data(self, **kwargs): #  Correcto
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_superuser:
+            context['rol'] = 'Admin'
         else:
-            # Credenciales inválidas
-            messages.error(request, "Usuario o contraseña incorrectos.")
-            return redirect('login')
-
-    return render(request, 'inventario/login.html')
-
-@login_required
-def dashboard_view(request):
-    rol = 'Consulta'
-    if request.user.groups.filter(name='Admin').exists():
-        rol = 'Admin'
-    elif request.user.groups.filter(name='Operador').exists():
-        rol = 'Operador'
-        
-    productos = Producto.objects.all().order_by('id')
-    return render(request, 'inventario/dashboard.html', {'productos': productos, 'rol': rol})
-
-@login_required
-def registrar_movimiento(request):
-    if request.method == 'POST':
-        prod_id = request.POST.get('producto_id')
-        tipo = request.POST.get('tipo')
-        cant = int(request.POST.get('cantidad', 0))
-        
-        try:
-            producto = Producto.objects.get(id=prod_id)
-        except Producto.DoesNotExist:
-            messages.error(request, f"❌ Error: El producto con ID #{prod_id} no existe.")
-            return redirect('dashboard')
+            grupo = self.request.user.groups.first()
+            context['rol'] = grupo.name if grupo else 'Consulta'
             
-        if tipo == 'SALIDA' and producto.cantidad < cant:
-            messages.error(request, f"❌ Error de Consistencia: Stock insuficiente de '{producto.nombre}'. Disponible: {producto.cantidad} u.")
-            return redirect('dashboard')
-            
-        if tipo == 'ENTRADA':
-            producto.cantidad += cant
-        elif tipo == 'SALIDA':
-            producto.cantidad -= cant
+        context['movimientos'] = InventarioService.obtener_historial_movimientos()
+        context['form'] = ProductoForm()
+        return context
+
+class CrearProductoView(LoginRequiredMixin, AdminOrOperadorMixin, CreateView):
+    """Alta de nuevos productos en el catálogo."""
+    model = Producto
+    form_class = ProductoForm
+    template_name = 'dashboard.html'
+    success_url = reverse_lazy('dashboard')
+
+    def form_valid(self, form):
+        producto = form.save(commit=False)
+        stock_inicial = form.cleaned_data.get('cantidad_inicial') or 0
+        producto.cantidad = 0
         producto.save()
-        
-        Movimiento.objects.create(
-            producto=producto,
-            tipo=tipo,
-            cantidad=cant,
-            usuario=request.user
-        )
-        
-        messages.success(request, f"✨ Movimiento registrado con éxito para '{producto.nombre}'.")
+        self.object = producto
+
+        if stock_inicial > 0:
+            try:
+                InventarioService.registrar_movimiento_stock(
+                    producto_id=producto.id,
+                    tipo='ENTRADA',
+                    cantidad=stock_inicial,
+                    usuario=self.request.user
+                )
+            except Exception as e:
+                messages.error(self.request, f"Producto creado, pero hubo un error con el stock: {str(e)}")
+                return HttpResponseRedirect(self.get_success_url())
+
+        messages.success(self.request, "Producto creado con éxito.")
+        return HttpResponseRedirect(self.get_success_url())
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Error al crear el producto.")
         return redirect('dashboard')
 
-@login_required
-def crear_producto(request):
-    if not request.user.groups.filter(name='Admin').exists():
-        return HttpResponseForbidden("🛑 Acceso denegado.")
+class EditarProductoView(LoginRequiredMixin, AdminOrOperadorMixin, UpdateView):
+    model = Producto
+    form_class = ProductoForm
+    template_name = 'editar_producto.html'
+    success_url = reverse_lazy('dashboard')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Producto modificado con éxito.")
+        return super().form_valid(form)
+
+    def get_context_data(**kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_superuser:
+            context['rol'] = 'Admin'
+        else:
+            grupo = self.request.user.groups.first()
+            context['rol'] = grupo.name if grupo else 'Consulta'
+        return context
+
+class EliminarProductoView(LoginRequiredMixin, AdminOrOperadorMixin, DeleteView):
+    model = Producto
+    template_name = 'dashboard.html'
+    success_url = reverse_lazy('dashboard')
+    pk_url_kwarg = 'producto_id'
+
+    def get(self, request, *args, **kwargs):
+        return self.delete(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        success_url = self.get_success_url()
+        self.object.delete()
+        messages.success(request, "Producto eliminado correctamente.")
+        return redirect(success_url)
+
+class RegistrarMovimientoView(LoginRequiredMixin, AdminOrOperadorMixin, View):
+    def post(self, request):
+        producto_id = request.POST.get('producto_id')
+        tipo = request.POST.get('tipo')
+        cantidad = int(request.POST.get('cantidad', 0))
+        try:
+            InventarioService.registrar_movimiento_stock(
+                producto_id=producto_id, tipo=tipo, cantidad=cantidad, usuario=request.user
+            )
+            messages.success(request, f"Movimiento de {tipo} registrado correctamente.")
+        except Exception as e:
+            messages.error(request, f"Error: {str(e)}")
+        return redirect('dashboard')
+
+class ExportarProductosCSVView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        return InventarioService.generar_csv_productos()
+
+class ExportarMovimientosCSVView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        if not (request.user.is_superuser or request.user.groups.filter(name='Admin').exists()):
+            messages.error(request, "No tiene permisos.")
+            return redirect('dashboard')
+        return InventarioService.generar_csv_movimientos()
+
+# --- VISTAS PARA LA SIMULACIÓN DE OPERACIONES (CORREGIDAS SIN INDEX OUT OF RANGE) ---
+
+class SimularCompraView(LoginRequiredMixin, AdminOrOperadorMixin, View):
+    """Permite seleccionar múltiples productos para simular un ingreso."""
+    def get(self, request):
+        productos = Producto.objects.all().order_by('nombre')
+        return render(request, 'simular_compra.html', {'productos': productos})
+
+    def post(self, request):
+        productos_ids = request.POST.getlist('productos[]')
         
-    if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        precio = request.POST.get('precio')
-        cantidad_inicial = request.POST.get('cantidad_inicial', 0)
-        
-        Producto.objects.create(nombre=nombre, precio=precio, cantidad=cantidad_inicial)
-        messages.success(request, f"📦 Producto '{nombre}' dado de alta.")
-    return redirect('dashboard')
+        if not productos_ids:
+            messages.error(request, "Debe seleccionar al menos un producto.")
+            return redirect('simular_compra')
 
-@login_required
-def eliminar_producto(request, producto_id):
-    if not request.user.groups.filter(name='Admin').exists():
-        return HttpResponseForbidden("🛑 Acceso denegado.")
-        
-    try:
-        producto = Producto.objects.get(id=producto_id)
-        nombre_prod = producto.nombre
-        producto.delete()
-        messages.success(request, f"🗑️ El producto '{nombre_prod}' fue eliminado.")
-    except Producto.DoesNotExist:
-        messages.error(request, "❌ El producto no existe.")
-        
-    return redirect('dashboard')
+        try:
+            proveedor_defecto = Proveedor.objects.first()
+            if not proveedor_defecto:
+                proveedor_defecto = Proveedor.objects.create(nombre="Proveedor Sistema")
+
+            compra = Compra.objects.create(usuario=request.user, proveedor=proveedor_defecto)
+            resumen = []
+            
+            for p_id in productos_ids:
+                # Obtenemos la cantidad específica de este ID de producto
+                cant = request.POST.get(f'cantidad_{p_id}')
+                cantidad = int(cant) if cant else 0
+                
+                if cantidad > 0:
+                    mov = InventarioService.registrar_movimiento_stock(
+                        producto_id=p_id, tipo='ENTRADA', cantidad=cantidad, usuario=request.user, compra_id=compra.id
+                    )
+                    resumen.append({'producto': mov.producto.nombre, 'cantidad': cantidad, 'precio': mov.producto.precio})
+            
+            return render(request, 'resumen_operacion.html', {'tipo': 'Compra', 'items': resumen, 'doc_id': compra.id})
+        except Exception as e:
+            messages.error(request, f"Error en la simulación: {str(e)}")
+            return redirect('dashboard')
 
 
-@login_required
-def editar_producto(request, producto_id):
-    # Solo administradores
-    if not request.user.groups.filter(name='Admin').exists():
-        return HttpResponseForbidden("🛑 Acceso denegado. Solo administradores pueden editar productos.")
+class SimularVentaView(LoginRequiredMixin, AdminOrOperadorMixin, View):
+    """Permite seleccionar múltiples productos para simular un egreso con validación de stock."""
+    def get(self, request):
+        productos = Producto.objects.all().order_by('nombre')
+        return render(request, 'simular_venta.html', {'productos': productos})
 
-    producto = get_object_or_404(Producto, id=producto_id)
+    def post(self, request):
+        productos_ids = request.POST.getlist('productos[]')
 
-    if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"✏️ Producto '{producto.nombre}' actualizado correctamente.")
-            return redirect('dashboard')  # O la vista que lista los productos
-    else:
-        form = ProductoForm(instance=producto)
-    if request.user.groups.filter(name='Admin').exists():
-            rol = 'Admin'
-    elif request.user.groups.filter(name='Operador').exists():
-            rol = 'Operador'
-    else:
-            rol = 'Consulta'
+        if not productos_ids:
+            messages.error(request, "Debe seleccionar al menos un producto.")
+            return redirect('simular_venta')
 
-    return render(request, 'inventario/editar_producto.html', {
-            'form': form,
-            'producto': producto,
-            'rol': rol,      
-        })
+        try:
+            cliente_defecto = Cliente.objects.first()
+            if not cliente_defecto:
+                cliente_defecto = Cliente.objects.create(nombre="Consumidor Final")
 
-@login_required
-def exportar_csv(request):
-    es_admin = request.user.groups.filter(name='Admin').exists()
-    es_consulta = request.user.groups.filter(name='Consulta').exists()
-    
-    if not (es_admin or es_consulta):
-        return HttpResponseForbidden("🛑 No autorizado.")
-        
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="inventario_actual.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow(['ID', 'Producto', 'Stock Disponible', 'Precio Unitario'])
-    
-    productos = Producto.objects.all().order_by('id')
-    for p in productos:
-        writer.writerow([p.id, p.nombre, p.cantidad, p.precio])
-        
-    return response
-
-def logout_view(request):
-    logout(request)
-    return redirect('login')
-
-@login_required
-def exportar_csv_movimientos(request):
-    # Tu filtro original (que confirmamos que funciona perfecto)
-    if not request.user.groups.filter(name='Admin').exists() and not request.user.is_superuser:
-        return HttpResponseForbidden("🛑 No autorizado.")
-        
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="movimientos.csv"'
-    
-    # Evita que el navegador te devuelva un archivo viejo de su memoria
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    
-    writer = csv.writer(response)
-    writer.writerow(['ID', 'Producto', 'Tipo', 'Cantidad', 'Usuario', 'Fecha'])
-    
-    # Consulta optimizada a la base de datos
-    movimientos = Movimiento.objects.all().select_related('producto', 'usuario').order_by('id')
-    
-    for m in movimientos:
-        fecha_local = timezone.localtime(m.fecha)
-        writer.writerow([
-            m.id, 
-            m.producto.nombre, 
-            m.tipo, 
-            m.cantidad, 
-            m.usuario.username, 
-            fecha_local.strftime('%d/%m/%Y %H:%M')
-        ])
-        
-    return response
+            venta = Venta.objects.create(usuario=request.user, cliente=cliente_defecto)
+            resumen = []
+            
+            for p_id in productos_ids:
+                # Obtenemos la cantidad específica de este ID de producto
+                cant = request.POST.get(f'cantidad_{p_id}')
+                cantidad = int(cant) if cant else 0
+                
+                if cantidad > 0:
+                    mov = InventarioService.registrar_movimiento_stock(
+                        producto_id=p_id, tipo='SALIDA', cantidad=cantidad, usuario=request.user, venta_id=venta.id
+                    )
+                    resumen.append({'producto': mov.producto.nombre, 'cantidad': cantidad, 'precio': mov.producto.precio})
+            
+            return render(request, 'resumen_operacion.html', {'tipo': 'Venta', 'items': resumen, 'doc_id': venta.id})
+        except Exception as e:
+            messages.error(request, f"Error: {str(e)}")
+            return redirect('simular_venta')
