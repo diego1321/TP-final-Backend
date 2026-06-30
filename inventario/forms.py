@@ -4,9 +4,9 @@ from .models import Producto, Categoria
 class ProductoForm(forms.ModelForm):
     cantidad_inicial = forms.IntegerField(
         label="Stock Inicial", 
-        required=False,        
-        initial=0,             
-        min_value=0           
+        required=False, 
+        initial=0,
+        min_value=0
     )
 
     class Meta:
@@ -15,8 +15,9 @@ class ProductoForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Hace obligatoria la elección de la categoría en el formulario
         self.fields['categoria'].required = True
         self.fields['categoria'].empty_label = "Seleccione una categoría"
         
-        for field in self.fields.values():    
+        for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'

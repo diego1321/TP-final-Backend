@@ -2,7 +2,7 @@ from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 
 def cargar_categorias_automaticas(sender, **kwargs):
-    
+    """Inserta las 10 categorías automáticamente al iniciar la app o migrar."""
     try:
         from .models import Categoria
         
