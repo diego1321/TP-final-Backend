@@ -1,33 +1,24 @@
-"""
-URL configuration for gestion_stock project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from inventario import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls), # El panel de admin nativo de Django
-    path('', views.dashboard_view, name='dashboard'),
-    path('login/', views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('movimiento/', views.registrar_movimiento, name='registrar_movimiento'),
-    path('exportar/', views.exportar_csv, name='exportar_csv'),
-    path('crear-producto/', views.crear_producto, name='crear_producto'),
-    path('eliminar-producto/<int:producto_id>/', views.eliminar_producto, name='eliminar_producto'),
-    path('editar-producto/<int:producto_id>/', views.editar_producto, name='editar_producto'),
-    path('exportar-movimientos/', views.exportar_csv_movimientos, name='exportar_csv_movimientos'),
-
+    
+    path('admin/', admin.site.urls),
+    
+    
+    path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    
+   
+    path('', views.DashboardView.as_view(), name='dashboard'),
+    path('crear-producto/', views.CrearProductoView.as_view(), name='crear_producto'),
+    path('editar-producto/<int:pk>/', views.EditarProductoView.as_view(), name='editar_producto'),
+    path('eliminar-producto/<int:producto_id>/', views.EliminarProductoView.as_view(), name='eliminar_producto'),
+    path('movimiento/', views.RegistrarMovimientoView.as_view(), name='registrar_movimiento'),
+    
+    
+    path('exportar/', views.ExportarProductosCSVView.as_view(), name='exportar_csv'),
+    path('exportar-movimientos/', views.ExportarMovimientosCSVView.as_view(), name='exportar_csv_movimientos'),
 ]
