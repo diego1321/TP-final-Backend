@@ -50,7 +50,7 @@
     <div class="container mt-4">
         
         <div class="header-box d-flex justify-content-between align-items-center mb-4">
-            <h3 class="m-0 fw-bold">📦 Gestión de Stock</h3>
+            <h3 class="m-0 fw-bold">Gestión de Stock</h3>
             <div class="align-middle">
                 <span class="me-2">Usuario: <strong>{{ user.username }}</strong></span>
                 <span class="badge bg-primary text-uppercase px-2 py-1.5 me-3" style="font-size: 0.75rem;">{{ rol }}</span>
@@ -81,7 +81,8 @@
                         </a>
                         
                         {% if rol == 'Admin' or rol == 'Operador' %}
-                            <div class="vr mx-1"></div> <a href="{% url 'compras:simular_compra' %}" class="btn btn-warning btn-sm text-dark fw-bold">
+                            <div class="vr mx-1"></div> 
+                            <a href="{% url 'compras:simular_compra' %}" class="btn btn-warning btn-sm text-dark fw-bold">
                                 <i class="fas fa-shopping-cart me-1"></i> Nueva Compra
                             </a>
                             <a href="{% url 'ventas:simular_venta' %}" class="btn btn-danger btn-sm text-white fw-bold">
@@ -91,23 +92,26 @@
                     </div>
                 </div>
             </div>
-        <div class="card p-3 mb-4 bg-white">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <h5 class="fw-bold m-0 text-secondary">Gestión de Contactos</h5>
-                    <p class="text-muted small m-0">Agrega clientes o proveedores para tus operaciones.</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCliente">
-                        <i class="fas fa-plus me-2"></i> Nuevo Cliente
-                    </button>
 
-                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalProveedor">
-                        <i class="fas fa-plus me-2"></i> Nuevo Proveedor
-                    </button>
-                </div>
-            </div>  
-        </div>
+            {% if rol != 'Consulta' %}
+            <div class="card p-3 mb-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold m-0 text-secondary">Gestión de Contactos</h5>
+                        <p class="text-muted small m-0">Agrega clientes o proveedores para tus operaciones.</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCliente">
+                            <i class="fas fa-plus me-2"></i> Nuevo Cliente
+                        </button>
+
+                        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalProveedor">
+                            <i class="fas fa-plus me-2"></i> Nuevo Proveedor
+                        </button>
+                    </div>
+                </div>  
+            </div>
+            {% endif %}
         {% endif %}
 
         {% if messages %}
@@ -186,7 +190,7 @@
                     <form action="{% url 'inventario:crear_producto' %}" method="POST" class="h-100 d-flex flex-column justify-content-between">
                         {% csrf_token %}
                         <div>
-                            <h5 class="fw-bold text-success mb-3">🆕 Registrar Nuevo Producto</h5>
+                            <h5 class="fw-bold text-success mb-3">Registrar Nuevo Producto</h5>
                             <div class="mb-3">
                                 <label class="form-label">Nombre del Producto</label>
                                 <input type="text" name="nombre" class="form-control" required placeholder="Nombre producto">
@@ -223,7 +227,7 @@
                     <form action="{% url 'inventario:registrar_movimiento' %}" method="POST" class="h-100 d-flex flex-column justify-content-between">
                         {% csrf_token %}
                         <div>
-                            <h5 class="fw-bold text-primary mb-3">🔄 Registrar Movimiento de Stock</h5>
+                            <h5 class="fw-bold text-primary mb-3">Registrar Movimiento de Stock</h5>
                             <div class="mb-3">
                                 <label class="form-label">ID del Producto (Existente)</label>
                                 <input type="number" name="producto_id" class="form-control" required placeholder="Ej: 1, 2, 3...">
@@ -255,7 +259,8 @@
             {% endif %}
 
         </div>
-        {% if rol == 'Admin' or rol == 'Operador' %}
+
+        {% if rol == 'Admin' or rol == 'Consulta' %}
         <div class="row mt-4 mb-5 justify-content-center">
             <div class="col-md-8">
                 <div class="card p-4 bg-white border-0 shadow-sm text-center">
