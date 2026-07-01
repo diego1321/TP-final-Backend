@@ -131,18 +131,40 @@ El sistema funciona bajo un esquema de control de acceso basado en roles:
 
 ## Endpoints
 
-| Método | Endpoint | Vista | Descripción |
-|--------|----------|-------|-------------|
-| GET | `/admin/` | Django Admin | Panel de administración de Django. |
-| GET | `/` | `dashboard_view` | Muestra el dashboard con el listado de productos. |
-| GET / POST | `/login/` | `login_view` | Inicio de sesión de usuarios. |
-| GET | `/logout/` | `logout_view` | Cierra la sesión del usuario. |
-| POST | `/movimiento/` | `registrar_movimiento` | Registra una entrada o salida de stock. |
-| GET | `/exportar/` | `exportar_csv` | Exporta el stock en formato CSV. |
-| POST | `/crear-producto/` | `crear_producto` | Alta de un nuevo producto. |
-| POST | `/eliminar-producto/<int:producto_id>/` | `eliminar_producto` | Elimina un producto por ID. |
-| GET / POST | `/editar-producto/<int:producto_id>/` | `editar_producto` | Edita la información de un producto existente. |
-| GET | `/exportar-movimientos/` | `exportar_csv_movimientos` | Exporta el historial de movimientos del inventario en formato CSV. |
+
+### Inventario
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| GET / POST | `/inventario/login/` | Inicio de sesión de usuarios.. |
+| GET / POST | `/inventario/logout/` | Cierre de sesión del usuario. |
+| GET | `/inventario/` | Muestra el dashboard principal del sistema. |
+| GET / POST | `/inventario/productos/crear/` | Crea un nuevo producto. |
+| GET / POST | `/inventario/productos/<id>/editar/` | Edita un producto existente. |
+| GET / POST | `/inventario/productos/<id>/eliminar/` | Realiza la baja lógica de un producto. |
+| GET / POST | `/inventario/movimientos/registrar/` | Registra manualmente un movimiento de stock. |
+| GET | `/inventario/productos/top/` | Muestra el ranking de productos más vendidos. |
+| GET | `/inventario/exportar/productos/` | Exporta el listado de productos a CSV. |
+| GET | `/inventario/exportar/movimientos/` | Exporta el historial de movimientos a CSV. |
+
+### Compras
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| GET / POST | `/compras/simular/` | Registra una nueva compra con múltiples productos. |
+| GET | `/compras/historico/` | Muestra el historial de compras. |
+| GET | `/compras/detalle/<compra_id>/` | Muestra el detalle de una compra específica. |
+| GET / POST | `/compras/proveedor/nuevo/` | Registra un nuevo proveedor. |
+
+### Ventas
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| GET / POST | `/ventas/simular/venta/` | Registra una nueva venta con múltiples productos. |
+| GET | `/ventas/historico/ventas/` | Muestra el historial de ventas. |
+| GET | `/ventas/detalle/<venta_id>/` | Muestra el detalle de una venta específica. |
+| GET / POST | `/ventas/cliente/nuevo/` | Registra un nuevo cliente. |
+| GET | `/ventas/ticket/pdf/<tipo>/<id>/` | Genera y descarga el ticket de compra o venta en formato PDF. |
 
 ## Documentación
 
