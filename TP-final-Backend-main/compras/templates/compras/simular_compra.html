@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Compra</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light py-5">
+    <div class="container" style="max-width: 800px;">
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card p-4 shadow-sm bg-white border-0 rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold text-success m-0">🛒 Compra</h4>
+                <a href="{% url 'inventario:dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver al Panel</a>
+            </div>
+            <p class="text-muted">Selecciona los productos y cantidad.</p>
+            
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="fw-bold">Seleccionar Proveedor:</label>
+                    <select name="proveedor_id" class="form-select" required>
+                        <option value="" disabled selected>-- Seleccione un proveedor --</option>
+                        {% for prov in proveedores %}
+                            <option value="{{ prov.id }}">{{ prov.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% csrf_token %}
+                <div class="table-responsive mb-4" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table align-middle">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th width="10%">Seleccionar</th>
+                                <th>Producto</th>
+                                <th width="25%">Cantidad a Ingresar</th>
+                                <th width="20%">Precio de Costo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in productos %}
+                            <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" name="productos[]" value="{{ p.id }}" class="form-check-input row-check">
+                                </td>
+                                <td class="fw-bold">{{ p.nombre }} <span class="text-muted small d-block">Actual: {{ p.cantidad }} u.</span></td>
+                                
+                                <td>
+                                    <input type="number" name="cantidad_{{ p.id }}" class="form-control form-control-sm row-qty bg-light" min="1" readonly value="0">
+                                </td>
+
+                                <td>
+                                    <input type="number" name="costo_{{ p.id }}" step="0.01" class="form-control" placeholder="Costo unitario">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">Procesar Ingreso de Stock</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.row-check').forEach((checkbox, idx) => {
+            checkbox.addEventListener('change', (e) => {
+                const qtyInput = document.querySelectorAll('.row-qty')[idx];
+                const costInput = document.querySelectorAll('.row-cost')[idx];
+                if(e.target.checked) {
+                    qtyInput.readOnly = false;
+                    qtyInput.classList.remove('bg-light');
+                    qtyInput.value = "1";
+                    qtyInput.focus();
+                    costInput.readOnly = false;
+                    costInput.classList.remove('bg-light');
+                    costInput.value = "";
+                } else {
+                    qtyInput.readOnly = true;
+                    qtyInput.classList.add('bg-light');
+                    qtyInput.value = "0";
+                    costInput.readOnly = true;
+                    costInput.classList.add('bg-light');
+                    costInput.value = "0.00";
+                }
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
